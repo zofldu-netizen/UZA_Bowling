@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>볼링 밸런스 팀 짜기 슬롯머신</title>
+    <style>
+        body { font-family: 'Malgun Gothic', sans-serif; background: #f0f2f5; padding: 15px; margin: 0; text-align: center; }
+        .container { max-width: 650px; margin: 0 auto; background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); position: relative; }
+        
+        /* 🧡 최상단 제목 및 상태창 */
+        h2 { color: #ff8000; margin-bottom: 15px; }
+        .status { font-size: 14px; color: #e67300; margin-bottom: 20px; font-weight: bold; background: #fff3e0; padding: 10px; border-radius: 6px; display: inline-block; border: 1px solid #ffe0b2; }
+        
+        /* 📱 탭 메뉴 스타일 */
+        .tab-container { display: flex; gap: 10px; margin-bottom: 20px; justify-content: center; }
+        .tab-btn { flex: 1; padding: 12px; background: #e0e0e0; color: #555; border: none; border-radius: 8px; font-size: 16px; cursor: pointer; font-weight: bold; transition: 0.2s; }
+        .tab-btn.active { background: #ff8000; color: white; box-shadow: 0 3px 6px rgba(243, 156, 18, 0.3); }
+        
+        .input-group { margin: 15px 0; font-size: 16px; font-weight: bold; color: #333; }
+        input[type="number"] { width: 50px; padding: 5px; font-size: 16px; text-align: center; border-radius: 4px; border: 1px solid #ccc; }
+        
+        /* 🧡 팀 짜기 START! 버튼 */
+        button.start-bar { width: 100%; padding: 15px; background: #ff8000; color: white; border: none; border-radius: 8px; font-size: 18px; font-weight: bold; cursor: pointer; transition: 0.2s; }
+        button.start-bar:active { background: #cc6600; transform: scale(0.98); }
+        button.start-bar:disabled { background: #ccc; cursor: not-allowed; }
+        
+        .teams-container { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; margin-top: 25px; }
+        
+        /* 일반 팀 배정용 스타일 */
+        .team-box { background: #e9ecef; border-radius: 8px; text-align: left; min-height: 100px; transition: all 0.1s ease; overflow: hidden; }
+        
+        /* 헤더 디자인 설정 */
+        .team-title { background: #ff8000; color: white; font-weight: bold; padding: 10px 12px; display: flex; justify-content: space-between; align-items: center; }
+        .team-title span { font-size: 18px; flex-shrink: 0; }
+        
+        /* 항목별 세로 3줄 고정 디자인 */
+        .team-stats { font-size: 12px; color: white; text-align: right; line-height: 1.4; font-weight: bold; flex-shrink: 0; }
+        .team-stats div { white-space: nowrap; } 
+        
+        /* 내부 명단 여백 및 폰트 세팅 */
+        .member-list { padding: 10px 12px 12px 12px; }
+        .member { font-size: 15px; margin: 6px 0; color: #333; display: flex; justify-content: space-between; font-weight: bold; }
+        .avg { color: #555; font-size: 13px; font-weight: normal; }
+
+        /* 2인조 대진표 전용 모바일 테이블 스타일 */
+        .match-table { width: 100%; border-collapse: collapse; background: white; font-size: 15px; }
+        .match-table td { width: 50%; padding: 12px; font-weight: bold; color: #333; border-bottom: 1px solid #eee; text-align: center; }
+        .match-table td:first-child { border-right: 1px solid #eee; }
+
+        /* Avg 버튼 스타일 추가 */
+        .avg-btn-top { position: absolute; top: 10px; right: 10px; padding: 6px 12px; background: #666; color: white; border: none; border-radius: 4px; font-weight: bold; cursor: pointer; font-size: 13px; }
+        .avg-btn-top.active { background: #ff8000; }
+        
+        /* 에버순위 테이블 스타일 */
+        .rank-table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+        .rank-table th, .rank-table td { padding: 10px; border-bottom: 1px solid #eee; text-align: center; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <button id="avgBtn" class="avg-btn-top" onclick="switchTab('avg')">📊Avg</button>
+    <h2>🎳 UZA 정기전 팀 배정 </h2>
+    <div id="loadStatus" class="status">🔄 구글 API 보안 채널 연결 중...</div>
+    
+    <div class="tab-container">
+        <button id="tabTeam" class="tab-btn active" onclick="switchTab('team')"> 정기전 팀 배정</button>
+        <button id="tabPair" class="tab-btn" onclick="switchTab('pair')"> 2인조 팀 배정 (3G)</button>
+    </div>
+    
+    <div class="input-group" id="teamInputGroup">
+        목표 팀 수: <input type="number" id="tableCount" value="4" min="1"> 개 팀
+    </div>
+    
+    <div class="input-group" id="pairInfoGroup" style="display: none; font-size: 14px; color: #666; font-weight: normal;">
+        ℹ️ <strong>에버 상위 50%와 하위 50% 무작위 매칭</strong>
+    </div>
+    
+    <button id="startBtn" class="start-bar" onclick="startShuffle()" disabled>🎰 팀 짜기 START!</button>
+    
+    <div class="teams-container" id="teamsDisplay"></div>
+</div>
+
+<script>
+const GOOGLE_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbym_q0nL8Fqb0i9WWtRY7_HPXEaCABkXhTjnUV-BbAG6_4NbP6oejO8gsYjuBVFnz8LvA/exec";
+
+let teamPlayers = [], pairPlayers = [], avgPlayers = [], fetchedPlayers = [], currentMode = 'team';
+
+window.onload = loadGoogleSheet;
+
+function switchTab(mode) {
+    currentMode = mode;
+    fetchedPlayers = (mode === 'team') ? teamPlayers : pairPlayers;
+    
+    document.getElementById('tabTeam').classList.toggle('active', mode === 'team');
+    document.getElementById('tabPair').classList.toggle('active', mode === 'pair');
+    document.getElementById('avgBtn').classList.toggle('active', mode === 'avg');
+    
+    document.getElementById('startBtn').style.display = (mode === 'avg') ? 'none' : 'block';
+    
+    const container = document.getElementById('teamsDisplay');
+    container.innerHTML = '';
+    
+    if (mode === 'team') {
+        document.getElementById('teamInputGroup').style.display = 'block';
+        document.getElementById('pairInfoGroup').style.display = 'none';
+        container.style.gridTemplateColumns = "repeat(2, 1fr)";
+    } else if (mode === 'pair') {
+        document.getElementById('teamInputGroup').style.display = 'none';
+        document.getElementById('pairInfoGroup').style.display = 'block';
+        container.style.gridTemplateColumns = "1fr"; 
+    } else {
+        document.getElementById('teamInputGroup').style.display = 'none';
+        document.getElementById('pairInfoGroup').style.display = 'none';
+        container.style.gridTemplateColumns = "1fr";
+        renderAvg(avgPlayers);
+    }
+}
+
+async function loadGoogleSheet() {
+    try {
+        const response = await fetch(GOOGLE_WEB_APP_URL);
+        const data = await response.json(); 
+        
+        // 데이터가 객체 형태인지 배열 형태인지 대응
+        const matrix = data.mainData || data; 
+        
+        teamPlayers = []; pairPlayers = []; avgPlayers = [];
+        
+        matrix.forEach(row => {
+            if (row[1] && row[2]) {
+                const name = String(row[1]).trim();
+                const avg = parseFloat(row[2]);
+                if (name && !isNaN(avg) && avg >= 50 && avg <= 300) teamPlayers.push({ name: name, avg: avg });
+            }
+            if (row[3] && row[4]) {
+                const name = String(row[3]).trim();
+                const avg = parseFloat(row[4]);
+                if (name && !isNaN(avg) && avg >= 50 && avg <= 300) pairPlayers.push({ name: name, avg: avg });
+            }
+        });
+
+        // 에버순위 데이터 로드 (data.avgData가 있을 경우 처리)
+        if (data.avgData) {
+            data.avgData.forEach((row, i) => {
+                if (i > 0 && row[1]) avgPlayers.push({ rank: row[0], name: row[1], avg: row[2] });
+            });
+        }
+        
+        fetchedPlayers = teamPlayers; 
+        document.getElementById('loadStatus').innerText = `✅ 동기화 완료! (팀 ${teamPlayers.length}명, 2인조 ${pairPlayers.length}명)`;
+        document.getElementById('startBtn').disabled = false;
+    } catch (error) {
+        document.getElementById('loadStatus').innerText = `❌ 연결 실패.`;
+    }
+}
+
+// 기존 로직들 (절대 수정 안 함)
+function startShuffle() {
+    const tableCount = parseInt(document.getElementById('tableCount').value) || 4;
+    const startBtn = document.getElementById('startBtn');
+    startBtn.disabled = true;
+    let shuffleCount = 0;
+    const interval = setInterval(() => {
+        if (currentMode === 'team') renderTeams(makeBalancedTeams(tableCount, true), false);
+        else renderPairs(makePairsMatch(true));
+        shuffleCount++;
+        if (shuffleCount > 15) { 
+            clearInterval(interval);
+            if (currentMode === 'team') renderTeams(makeBalancedTeams(tableCount, false), true);
+            else renderPairs(makePairsMatch(false));
+            startBtn.disabled = false;
+        }
+    }, 100);
+}
+
+function makeBalancedTeams(tableCount, isVisualShuffle) {
+    let players = [...fetchedPlayers];
+    if (isVisualShuffle) players.sort(() => Math.random() - 0.5);
+    else {
+        players.sort((a, b) => b.avg - a.avg);
+        let randomizedPlayers = [];
+        for (let i = 0; i < players.length; i += tableCount) {
+            let chunk = players.slice(i, i + tableCount).sort(() => Math.random() - 0.5);
+            randomizedPlayers = randomizedPlayers.concat(chunk);
+        }
+        players = randomizedPlayers;
+    }
+    let teams = Array.from({ length: tableCount }, (_, i) => ({ id: i + 1, members: [], totalSum: 0, totalAvg: 0, handicap: 0 }));
+    let reverse = false;
+    for (let i = 0; i < players.length; i += tableCount) {
+        let chunk = players.slice(i, i + tableCount);
+        if (reverse && !isVisualShuffle) chunk.reverse(); 
+        chunk.forEach((p, idx) => { if (teams[idx]) teams[idx].members.push(p); });
+        reverse = !reverse;
+    }
+    teams.forEach(t => {
+        if (t.members.length > 0) {
+            t.totalSum = Math.round(t.members.reduce((a, b) => a + b.avg, 0));
+            t.totalAvg = Math.round(t.totalSum / t.members.length);
+        }
+    });
+    if (!isVisualShuffle) {
+        let max = Math.max(...teams.map(t => t.totalSum));
+        teams.forEach(t => t.handicap = (max - t.totalSum < 20) ? 0 : Math.floor((max - t.totalSum) / 10) * 10);
+    }
+    return teams;
+}
+
+function makePairsMatch(isVisualShuffle) {
+    let players = [...fetchedPlayers];
+    if (isVisualShuffle) {
+        let games = [[], [], []];
+        for (let g = 0; g < 3; g++) {
+            let s = [...players].sort(() => Math.random() - 0.5);
+            for (let i = 0; i < s.length; i += 2) games[g].push({ p1: s[i], p2: s[i+1] || s[i], isSolo: !s[i+1] });
+        }
+        return games;
+    }
+    players.sort((a, b) => b.avg - a.avg);
+    let g1c = Math.ceil(players.length/2), g1 = players.slice(0, g1c), g2 = players.slice(g1c);
+    let games = [];
+    for (let g = 0; g < 3; g++) {
+        let s1 = [...g1].sort(() => Math.random()-0.5), s2 = [...g2].sort(() => Math.random()-0.5);
+        let pairs = [];
+        for (let i = 0; i < g1c; i++) {
+            if (players.length % 2 !== 0 && i === g1c - 1) pairs.push({ p1: s1[i], p2: s1[i], isSolo: true });
+            else pairs.push({ p1: s1[i], p2: s2[i], isSolo: false });
+        }
+        games.push(pairs);
+    }
+    return games;
+}
+
+function renderTeams(teams, showHandicap) {
+    const container = document.getElementById('teamsDisplay');
+    container.innerHTML = '';
+    teams.forEach(t => {
+        const box = document.createElement('div');
+        box.className = 'team-box';
+        let html = `<div class="team-title"><span>${t.id}팀</span><div class="team-stats"><div>팀Avg : ${t.totalAvg}</div><div>Total : ${t.totalSum}</div><div>핸디 : +${showHandicap ? t.handicap : 0}</div></div></div><div class="member-list">`;
+        t.members.forEach(m => { html += `<div class="member"><span>${m.name}</span><span class="avg">${m.avg}</span></div>`; });
+        box.innerHTML = html + `</div>`;
+        container.appendChild(box);
+    });
+}
+
+function renderPairs(games) {
+    const container = document.getElementById('teamsDisplay');
+    container.innerHTML = `<div style="display: flex; flex-direction: column; gap: 20px; width: 100%;">` + games.map((g, i) => `<div style="background: #ffffff; border-radius: 8px; border: 1px solid #ddd; overflow: hidden; box-shadow: 0 2px 6px rgba(0,0,0,0.06);"><div style="background: #ff8000; color: white; font-weight: bold; padding: 12px; font-size: 18px;">⚡ ${i+1}G</div><table class="match-table">${g.map((p, idx) => `<tr style="background: ${idx%2===0?'#ffffff':'#fcfcfc'};"><td>${p.p1.name}</td><td>${p.isSolo?'<span style="color: #e74c3c; font-weight:bold;">성성복복🔥</span>':p.p2.name}</td></tr>`).join('')}</table></div>`).join('') + `</div>`;
+}
+
+function renderAvg(data) {
+    const container = document.getElementById('teamsDisplay');
+    container.innerHTML = `<table class="rank-table"><thead><tr style="background:#ff8000; color:white;"><th>No</th><th>이름</th><th>Avg</th></tr></thead><tbody>${data.map(p => `<tr><td>${p.rank}</td><td>${p.name}</td><td>${p.avg}</td></tr>`).join('')}</tbody></table>`;
+}
+</script>
+</body>
+</html>
