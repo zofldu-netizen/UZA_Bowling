@@ -52,6 +52,9 @@
         .avg-btn-top { position: absolute; top: 10px; right: 10px; padding: 6px 12px; background: #666; color: white; border: none; border-radius: 4px; font-weight: bold; cursor: pointer; font-size: 13px; }
         .avg-btn-top.active { background: #ff8000; }
         
+        /* ⚙️ 관리 버튼 스타일 (Avg와 대칭) */
+        .admin-btn-top { position: absolute; top: 10px; left: 10px; padding: 6px 10px; background: #ccc; border: none; border-radius: 4px; cursor: pointer; font-size: 16px; opacity: 0.6; }
+        
         /* 에버순위 테이블 스타일 */
         .rank-table { width: 100%; border-collapse: collapse; margin-top: 10px; }
         .rank-table th, .rank-table td { padding: 10px; border-bottom: 1px solid #eee; text-align: center; }
@@ -60,7 +63,10 @@
 <body>
 
 <div class="container">
+    <button class="admin-btn-top" onclick="window.open('https://docs.google.com/spreadsheets/d/1QTKiTIvXQMj6DE3QJwBCuiELAD-qxtxpbGILK04jwzU/edit?usp=sharing', '_blank')">⚙️</button>
+    
     <button id="avgBtn" class="avg-btn-top" onclick="switchTab('avg')">📊Avg</button>
+    
     <h2>🎳 UZA 정기전 팀 배정 </h2>
     <div id="loadStatus" class="status">🔄 구글 API 보안 채널 연결 중...</div>
     
@@ -83,6 +89,7 @@
 </div>
 
 <script>
+// 기존 원본 로직
 const GOOGLE_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbym_q0nL8Fqb0i9WWtRY7_HPXEaCABkXhTjnUV-BbAG6_4NbP6oejO8gsYjuBVFnz8LvA/exec";
 
 let teamPlayers = [], pairPlayers = [], avgPlayers = [], fetchedPlayers = [], currentMode = 'team';
@@ -123,7 +130,6 @@ async function loadGoogleSheet() {
         const response = await fetch(GOOGLE_WEB_APP_URL);
         const data = await response.json(); 
         
-        // 데이터가 객체 형태인지 배열 형태인지 대응
         const matrix = data.mainData || data; 
         
         teamPlayers = []; pairPlayers = []; avgPlayers = [];
@@ -141,7 +147,6 @@ async function loadGoogleSheet() {
             }
         });
 
-        // 에버순위 데이터 로드 (data.avgData가 있을 경우 처리)
         if (data.avgData) {
             data.avgData.forEach((row, i) => {
                 if (i > 0 && row[1]) avgPlayers.push({ rank: row[0], name: row[1], avg: row[2] });
@@ -156,7 +161,6 @@ async function loadGoogleSheet() {
     }
 }
 
-// 기존 로직들 (절대 수정 안 함)
 function startShuffle() {
     const tableCount = parseInt(document.getElementById('tableCount').value) || 4;
     const startBtn = document.getElementById('startBtn');
