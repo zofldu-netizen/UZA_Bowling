@@ -58,16 +58,26 @@
         /* 에버순위 테이블 스타일 */
         .rank-table { width: 100%; border-collapse: collapse; margin-top: 10px; }
         .rank-table th, .rank-table td { padding: 10px; border-bottom: 1px solid #eee; text-align: center; }
+
+/* 수정 후 (이 코드로 변경하세요) */
+.logo-container img { 
+    width: 280px;      
+    height: auto; 
+    display: block; 
+    margin: 0 auto; 
+}
     </style>
 </head>
 <body>
 
 <div class="container">
-    <button class="admin-btn-top" onclick="window.open('https://docs.google.com/spreadsheets/d/1QTKiTIvXQMj6DE3QJwBCuiELAD-qxtxpbGILK04jwzU/edit?usp=sharing', '_blank')">⚙️</button>
+        <div class="logo-container">
+        <img src="https://github.com/zofldu-netizen/UZA_Bowling/blob/main/KakaoTalk_20260706_155923831.png?raw=true" alt="UZA 볼링클럽">
+    </div><button class="admin-btn-top" onclick="window.open('https://docs.google.com/spreadsheets/d/1QTKiTIvXQMj6DE3QJwBCuiELAD-qxtxpbGILK04jwzU/edit?usp=sharing', '_blank')">⚙️</button>
     
     <button id="avgBtn" class="avg-btn-top" onclick="switchTab('avg')">📊Avg</button>
     
-    <h2>🎳 UZA 정기전 팀 배정 </h2>
+    <h2>🎳 정기전 팀 배정 </h2>
     <div id="loadStatus" class="status">🔄 구글 API 보안 채널 연결 중...</div>
     
     <div class="tab-container">
