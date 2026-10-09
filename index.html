@@ -36,7 +36,22 @@
         
         /* 항목별 세로 3줄 고정 디자인 */
         .team-stats { font-size: 12px; color: white; text-align: right; line-height: 1.4; font-weight: bold; flex-shrink: 0; }
-        .team-stats div { white-space: nowrap; } 
+        .team-stats div { white-space: nowrap; }
+
+        /* 게스트 배지 */
+        .guest-badge { display: inline-block; background: #8e44ad; color: #fff; font-size: 11px; font-weight: bold; padding: 2px 7px; border-radius: 10px; margin-left: 5px; vertical-align: middle; }
+
+        /* 게스트 이동 안내 + 팝업 */
+        .move-hint { grid-column: 1 / -1; font-size: 13px; color: #8e44ad; font-weight: bold; background: #f5eefb; border: 1px solid #d7bde2; border-radius: 8px; padding: 8px; margin-bottom: 4px; }
+        .member.movable { cursor: pointer; }
+        .member.movable:hover { background: #f5eefb; border-radius: 4px; }
+        #moveModal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1000; justify-content: center; align-items: center; }
+        #moveBox { background: white; border-radius: 12px; padding: 20px; min-width: 250px; max-width: 90%; text-align: center; }
+        #moveTitle { font-weight: bold; font-size: 17px; margin-bottom: 15px; color: #333; }
+        #moveBtns { display: flex; flex-direction: column; gap: 8px; }
+        .move-btn { padding: 12px; background: #ff8000; color: white; border: none; border-radius: 8px; font-size: 16px; font-weight: bold; cursor: pointer; }
+        .move-btn:active { background: #cc6600; }
+        .move-cancel { margin-top: 12px; padding: 10px; background: #ccc; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; font-size: 15px; width: 100%; }
         
         /* 내부 명단 여백 및 폰트 세팅 */
         .member-list { padding: 10px 12px 12px 12px; }
@@ -98,11 +113,89 @@
     <div class="teams-container" id="teamsDisplay"></div>
 </div>
 
+<!-- 게스트 팀 이동 팝업 -->
+<div id="moveModal" onclick="closeMoveModal()">
+    <div id="moveBox" onclick="event.stopPropagation()">
+        <div id="moveTitle"></div>
+        <div id="moveBtns"></div>
+        <button class="move-cancel" onclick="closeMoveModal()">취소</button>
+    </div>
+</div>
+
 <script>
 // 기존 원본 로직
 const GOOGLE_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbym_q0nL8Fqb0i9WWtRY7_HPXEaCABkXhTjnUV-BbAG6_4NbP6oejO8gsYjuBVFnz8LvA/exec";
 
 let teamPlayers = [], pairPlayers = [], avgPlayers = [], fetchedPlayers = [], currentMode = 'team';
+
+// 이름 앞 'G' = 게스트 표시. 게스트는 팀 토탈/팀Avg에서 제외되고, 그 점수만큼 팀 핸디로 들어감
+function parsePlayer(rawName, avg) {
+    const trimmed = String(rawName).trim();
+    const isGuest = /^g/i.test(trimmed);
+    const name = isGuest ? trimmed.slice(1).trim() : trimmed;
+    return { name: name, avg: avg, isGuest: isGuest };
+}
+
+function guestBadge(m) {
+    return m.isGuest ? `${m.name} <span class="guest-badge">게스트</span>` : m.name;
+}
+
+// 게스트 팀 이동용 상태
+let currentTeams = [], isShuffling = false, moveTarget = null;
+
+// 팀 토탈/팀Avg(게스트 제외) + 핸디 재계산. 게스트가 빠진 만큼 기존 공식이 게스트 점수만큼 핸디를 올려줌
+function recalcTeams(teams) {
+    teams.forEach(t => {
+        const scorers = t.members.filter(m => !m.isGuest);
+        if (scorers.length > 0) {
+            t.totalSum = Math.round(scorers.reduce((a, b) => a + b.avg, 0));
+            t.totalAvg = Math.round(t.totalSum / scorers.length);
+        } else {
+            t.totalSum = 0; t.totalAvg = 0;
+        }
+    });
+    let max = Math.max(...teams.map(t => t.totalSum));
+    teams.forEach(t => t.handicap = (max - t.totalSum < 20) ? 0 : Math.floor((max - t.totalSum) / 10) * 10);
+}
+
+function pickMoveTarget(teamId, memberIdx) {
+    if (isShuffling) return;
+    const team = currentTeams.find(t => t.id === teamId);
+    if (!team) return;
+    const m = team.members[memberIdx];
+    if (!m || !m.isGuest) return; // 게스트만 이동 가능
+    moveTarget = { teamId: teamId, memberIdx: memberIdx };
+    document.getElementById('moveTitle').innerText = `${m.name}님을 어느 팀으로?`;
+    const btns = document.getElementById('moveBtns');
+    btns.innerHTML = '';
+    currentTeams.forEach(t => {
+        if (t.id === teamId) return;
+        const b = document.createElement('button');
+        b.className = 'move-btn';
+        b.innerText = `${t.id}팀으로 이동`;
+        b.onclick = () => moveGuest(t.id);
+        btns.appendChild(b);
+    });
+    document.getElementById('moveModal').style.display = 'flex';
+}
+
+function closeMoveModal() {
+    document.getElementById('moveModal').style.display = 'none';
+    moveTarget = null;
+}
+
+function moveGuest(toTeamId) {
+    if (!moveTarget) return;
+    const from = currentTeams.find(t => t.id === moveTarget.teamId);
+    const to = currentTeams.find(t => t.id === toTeamId);
+    if (!from || !to) return;
+    const moved = from.members.splice(moveTarget.memberIdx, 1)[0];
+    if (!moved) return;
+    to.members.push(moved);
+    recalcTeams(currentTeams);
+    renderTeams(currentTeams, true);
+    closeMoveModal();
+}
 
 window.onload = loadGoogleSheet;
 
@@ -148,12 +241,12 @@ async function loadGoogleSheet() {
             if (row[1] && row[2]) {
                 const name = String(row[1]).trim();
                 const avg = parseFloat(row[2]);
-                if (name && !isNaN(avg) && avg >= 50 && avg <= 300) teamPlayers.push({ name: name, avg: avg });
+                if (name && !isNaN(avg) && avg >= 50 && avg <= 300) teamPlayers.push(parsePlayer(name, avg));
             }
             if (row[3] && row[4]) {
                 const name = String(row[3]).trim();
                 const avg = parseFloat(row[4]);
-                if (name && !isNaN(avg) && avg >= 50 && avg <= 300) pairPlayers.push({ name: name, avg: avg });
+                if (name && !isNaN(avg) && avg >= 50 && avg <= 300) pairPlayers.push(parsePlayer(name, avg));
             }
         });
 
@@ -163,8 +256,9 @@ async function loadGoogleSheet() {
             });
         }
         
-        fetchedPlayers = teamPlayers; 
-        document.getElementById('loadStatus').innerText = `✅ 동기화 완료! (팀 ${teamPlayers.length}명, 2인조 ${pairPlayers.length}명)`;
+        fetchedPlayers = teamPlayers;
+        const guestCount = teamPlayers.filter(p => p.isGuest).length;
+        document.getElementById('loadStatus').innerText = `✅ 동기화 완료! (팀 ${teamPlayers.length}명${guestCount ? `·게스트 ${guestCount}명` : ''}, 2인조 ${pairPlayers.length}명)`;
         document.getElementById('startBtn').disabled = false;
     } catch (error) {
         document.getElementById('loadStatus').innerText = `❌ 연결 실패.`;
@@ -175,15 +269,18 @@ function startShuffle() {
     const tableCount = parseInt(document.getElementById('tableCount').value) || 4;
     const startBtn = document.getElementById('startBtn');
     startBtn.disabled = true;
+    isShuffling = true;
+    closeMoveModal();
     let shuffleCount = 0;
     const interval = setInterval(() => {
         if (currentMode === 'team') renderTeams(makeBalancedTeams(tableCount, true), false);
         else renderPairs(makePairsMatch(true));
         shuffleCount++;
-        if (shuffleCount > 15) { 
+        if (shuffleCount > 15) {
             clearInterval(interval);
-            if (currentMode === 'team') renderTeams(makeBalancedTeams(tableCount, false), true);
+            if (currentMode === 'team') { currentTeams = makeBalancedTeams(tableCount, false); renderTeams(currentTeams, true); }
             else renderPairs(makePairsMatch(false));
+            isShuffling = false;
             startBtn.disabled = false;
         }
     }, 100);
@@ -209,16 +306,7 @@ function makeBalancedTeams(tableCount, isVisualShuffle) {
         chunk.forEach((p, idx) => { if (teams[idx]) teams[idx].members.push(p); });
         reverse = !reverse;
     }
-    teams.forEach(t => {
-        if (t.members.length > 0) {
-            t.totalSum = Math.round(t.members.reduce((a, b) => a + b.avg, 0));
-            t.totalAvg = Math.round(t.totalSum / t.members.length);
-        }
-    });
-    if (!isVisualShuffle) {
-        let max = Math.max(...teams.map(t => t.totalSum));
-        teams.forEach(t => t.handicap = (max - t.totalSum < 20) ? 0 : Math.floor((max - t.totalSum) / 10) * 10);
-    }
+    recalcTeams(teams);
     return teams;
 }
 
@@ -250,11 +338,22 @@ function makePairsMatch(isVisualShuffle) {
 function renderTeams(teams, showHandicap) {
     const container = document.getElementById('teamsDisplay');
     container.innerHTML = '';
+    const movable = showHandicap && !isShuffling;
+    const hasGuest = teams.some(t => t.members.some(m => m.isGuest));
+    if (hasGuest && movable) {
+        const hint = document.createElement('div');
+        hint.className = 'move-hint';
+        hint.innerText = '💡 게스트 이름을 탭하면 팀을 옮길 수 있어요';
+        container.appendChild(hint);
+    }
     teams.forEach(t => {
         const box = document.createElement('div');
         box.className = 'team-box';
         let html = `<div class="team-title"><span>${t.id}팀</span><div class="team-stats"><div>팀Avg : ${t.totalAvg}</div><div>Total : ${t.totalSum}</div><div>핸디 : +${showHandicap ? t.handicap : 0}</div></div></div><div class="member-list">`;
-        t.members.forEach(m => { html += `<div class="member"><span>${m.name}</span><span class="avg">${m.avg}</span></div>`; });
+        t.members.forEach((m, mi) => {
+            const canMove = movable && m.isGuest;
+            html += `<div class="member${canMove ? ' movable' : ''}"${canMove ? ` onclick="pickMoveTarget(${t.id}, ${mi})"` : ''}><span>${guestBadge(m)}</span><span class="avg">${m.avg}</span></div>`;
+        });
         box.innerHTML = html + `</div>`;
         container.appendChild(box);
     });
@@ -262,7 +361,7 @@ function renderTeams(teams, showHandicap) {
 
 function renderPairs(games) {
     const container = document.getElementById('teamsDisplay');
-    container.innerHTML = `<div style="display: flex; flex-direction: column; gap: 20px; width: 100%;">` + games.map((g, i) => `<div style="background: #ffffff; border-radius: 8px; border: 1px solid #ddd; overflow: hidden; box-shadow: 0 2px 6px rgba(0,0,0,0.06);"><div style="background: #ff8000; color: white; font-weight: bold; padding: 12px; font-size: 18px;">⚡ ${i+1}G</div><table class="match-table">${g.map((p, idx) => `<tr style="background: ${idx%2===0?'#ffffff':'#fcfcfc'};"><td>${p.p1.name}</td><td>${p.isSolo?'<span style="color: #e74c3c; font-weight:bold;">성성복복🔥</span>':p.p2.name}</td></tr>`).join('')}</table></div>`).join('') + `</div>`;
+    container.innerHTML = `<div style="display: flex; flex-direction: column; gap: 20px; width: 100%;">` + games.map((g, i) => `<div style="background: #ffffff; border-radius: 8px; border: 1px solid #ddd; overflow: hidden; box-shadow: 0 2px 6px rgba(0,0,0,0.06);"><div style="background: #ff8000; color: white; font-weight: bold; padding: 12px; font-size: 18px;">⚡ ${i+1}G</div><table class="match-table">${g.map((p, idx) => `<tr style="background: ${idx%2===0?'#ffffff':'#fcfcfc'};"><td>${guestBadge(p.p1)}</td><td>${p.isSolo?'<span style="color: #e74c3c; font-weight:bold;">성성복복🔥</span>':guestBadge(p.p2)}</td></tr>`).join('')}</table></div>`).join('') + `</div>`;
 }
 
 function renderAvg(data) {
