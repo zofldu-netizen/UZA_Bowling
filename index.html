@@ -41,6 +41,10 @@
         /* 게스트 배지 */
         .guest-badge { display: inline-block; background: #8e44ad; color: #fff; font-size: 11px; font-weight: bold; padding: 2px 7px; border-radius: 10px; margin-left: 5px; vertical-align: middle; }
 
+        /* 게스트 이동 버튼 (보라색) */
+        .guest-btn { background: #8e44ad; color: #fff; font-size: 11px; font-weight: bold; padding: 3px 9px; border-radius: 10px; margin-left: 5px; border: none; cursor: pointer; vertical-align: middle; }
+        .guest-btn:active { background: #7d3c98; transform: scale(0.95); }
+
         /* 게스트 이동 안내 + 팝업 */
         .move-hint { grid-column: 1 / -1; font-size: 13px; color: #8e44ad; font-weight: bold; background: #f5eefb; border: 1px solid #d7bde2; border-radius: 8px; padding: 8px; margin-bottom: 4px; }
         .member.movable { cursor: pointer; }
@@ -278,9 +282,9 @@ function startShuffle() {
         shuffleCount++;
         if (shuffleCount > 15) {
             clearInterval(interval);
+            isShuffling = false; // 최종 렌더 전에 풀어야 게스트 버튼에 onclick이 붙음
             if (currentMode === 'team') { currentTeams = makeBalancedTeams(tableCount, false); renderTeams(currentTeams, true); }
             else renderPairs(makePairsMatch(false));
-            isShuffling = false;
             startBtn.disabled = false;
         }
     }, 100);
@@ -343,7 +347,7 @@ function renderTeams(teams, showHandicap) {
     if (hasGuest && movable) {
         const hint = document.createElement('div');
         hint.className = 'move-hint';
-        hint.innerText = '💡 게스트 이름을 탭하면 팀을 옮길 수 있어요';
+        hint.innerText = '💡 게스트 버튼을 누르면 팀을 옮길 수 있어요';
         container.appendChild(hint);
     }
     teams.forEach(t => {
@@ -352,7 +356,10 @@ function renderTeams(teams, showHandicap) {
         let html = `<div class="team-title"><span>${t.id}팀</span><div class="team-stats"><div>팀Avg : ${t.totalAvg}</div><div>Total : ${t.totalSum}</div><div>핸디 : +${showHandicap ? t.handicap : 0}</div></div></div><div class="member-list">`;
         t.members.forEach((m, mi) => {
             const canMove = movable && m.isGuest;
-            html += `<div class="member${canMove ? ' movable' : ''}"${canMove ? ` onclick="pickMoveTarget(${t.id}, ${mi})"` : ''}><span>${guestBadge(m)}</span><span class="avg">${m.avg}</span></div>`;
+            const nameHtml = canMove
+                ? `${m.name} <button class="guest-btn" onclick="pickMoveTarget(${t.id}, ${mi})">게스트</button>`
+                : guestBadge(m);
+            html += `<div class="member"><span>${nameHtml}</span><span class="avg">${m.avg}</span></div>`;
         });
         box.innerHTML = html + `</div>`;
         container.appendChild(box);
