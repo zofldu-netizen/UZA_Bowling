@@ -41,9 +41,19 @@
         /* 게스트 배지 */
         .guest-badge { display: inline-block; background: #8e44ad; color: #fff; font-size: 11px; font-weight: bold; padding: 2px 7px; border-radius: 10px; margin-left: 5px; vertical-align: middle; }
 
-        /* 게스트 이동 버튼 (보라색) */
-        .guest-btn { background: #8e44ad; color: #fff; font-size: 11px; font-weight: bold; padding: 3px 9px; border-radius: 10px; margin-left: 5px; border: none; cursor: pointer; vertical-align: middle; }
+        /* 게스트 이동 버튼 (보라색, 작게) */
+        .guest-btn { background: #8e44ad; color: #fff; font-size: 10px; font-weight: bold; padding: 1px 6px; border-radius: 8px; margin-left: 4px; border: none; cursor: pointer; vertical-align: middle; white-space: nowrap; }
         .guest-btn:active { background: #7d3c98; transform: scale(0.95); }
+
+        /* 게스트 짝짓기 섹션 */
+        #pairSection { margin: 15px 0; text-align: left; }
+        .pair-row { display: flex; justify-content: space-between; align-items: center; padding: 10px 12px; background: #f8f9fa; border: 1px solid #e9ecef; border-radius: 8px; margin-bottom: 8px; cursor: pointer; font-size: 15px; font-weight: bold; color: #333; }
+        .pair-row:active { background: #f5eefb; }
+        .pair-with { font-size: 13px; color: #8e44ad; font-weight: bold; white-space: nowrap; }
+        #pairModal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1000; justify-content: center; align-items: center; }
+        #pairBox { background: white; border-radius: 12px; padding: 20px; min-width: 250px; max-width: 90%; max-height: 80%; overflow-y: auto; text-align: center; }
+        #pairTitle { font-weight: bold; font-size: 17px; margin-bottom: 15px; color: #333; }
+        #pairBtns { display: flex; flex-direction: column; gap: 8px; }
 
         /* 게스트 이동 안내 + 팝업 */
         .move-hint { grid-column: 1 / -1; font-size: 13px; color: #8e44ad; font-weight: bold; background: #f5eefb; border: 1px solid #d7bde2; border-radius: 8px; padding: 8px; margin-bottom: 4px; }
@@ -111,7 +121,12 @@
     <div class="input-group" id="pairInfoGroup" style="display: none; font-size: 14px; color: #666; font-weight: normal;">
         ℹ️ <strong>에버 상위 50%와 하위 50% 무작위 매칭</strong>
     </div>
-    
+
+    <div id="pairSection" style="display: none;">
+        <div style="font-weight: bold; font-size: 15px; color: #333; margin-bottom: 8px;">👥 게스트 짝짓기</div>
+        <div id="pairList"></div>
+    </div>
+
     <button id="startBtn" class="start-bar" onclick="startShuffle()" disabled>🎰 팀 짜기 START!</button>
     
     <div class="teams-container" id="teamsDisplay"></div>
@@ -123,6 +138,16 @@
         <div id="moveTitle"></div>
         <div id="moveBtns"></div>
         <button class="move-cancel" onclick="closeMoveModal()">취소</button>
+    </div>
+</div>
+
+<!-- 게스트 짝짓기 팝업 -->
+<div id="pairModal" onclick="closePairModal()">
+    <div id="pairBox" onclick="event.stopPropagation()">
+        <div id="pairTitle"></div>
+        <div id="pairBtns"></div>
+        <button class="move-cancel" onclick="clearPairing()">짝 해제</button>
+        <button class="move-cancel" onclick="closePairModal()">닫기</button>
     </div>
 </div>
 
@@ -147,6 +172,9 @@ function guestBadge(m) {
 // 게스트 팀 이동용 상태
 let currentTeams = [], isShuffling = false, moveTarget = null;
 
+// 게스트 짝짓기 상태: { 게스트이름: 짝꿍회원이름 }
+let pairings = {}, pairingGuest = null;
+
 // 팀 토탈/팀Avg(게스트 제외) + 핸디 재계산. 게스트가 빠진 만큼 기존 공식이 게스트 점수만큼 핸디를 올려줌
 function recalcTeams(teams) {
     teams.forEach(t => {
@@ -162,27 +190,6 @@ function recalcTeams(teams) {
     teams.forEach(t => t.handicap = (max - t.totalSum < 20) ? 0 : Math.floor((max - t.totalSum) / 10) * 10);
 }
 
-function pickMoveTarget(teamId, memberIdx) {
-    if (isShuffling) return;
-    const team = currentTeams.find(t => t.id === teamId);
-    if (!team) return;
-    const m = team.members[memberIdx];
-    if (!m || !m.isGuest) return; // 게스트만 이동 가능
-    moveTarget = { teamId: teamId, memberIdx: memberIdx };
-    document.getElementById('moveTitle').innerText = `${m.name}님을 어느 팀으로?`;
-    const btns = document.getElementById('moveBtns');
-    btns.innerHTML = '';
-    currentTeams.forEach(t => {
-        if (t.id === teamId) return;
-        const b = document.createElement('button');
-        b.className = 'move-btn';
-        b.innerText = `${t.id}팀으로 이동`;
-        b.onclick = () => moveGuest(t.id);
-        btns.appendChild(b);
-    });
-    document.getElementById('moveModal').style.display = 'flex';
-}
-
 function closeMoveModal() {
     document.getElementById('moveModal').style.display = 'none';
     moveTarget = null;
@@ -192,13 +199,128 @@ function moveGuest(toTeamId) {
     if (!moveTarget) return;
     const from = currentTeams.find(t => t.id === moveTarget.teamId);
     const to = currentTeams.find(t => t.id === toTeamId);
-    if (!from || !to) return;
-    const moved = from.members.splice(moveTarget.memberIdx, 1)[0];
-    if (!moved) return;
-    to.members.push(moved);
+    const pi = moveTarget.swapMap ? moveTarget.swapMap[toTeamId] : undefined;
+    if (!from || !to || pi === undefined) return;
+    const gi = moveTarget.memberIdx;
+    const guest = from.members[gi];
+    if (!guest || !guest.isGuest) return;
+    // 자리 바꾸기: 인원수는 그대로 유지
+    const tmp = to.members[pi];
+    to.members[pi] = guest;
+    from.members[gi] = tmp;
     recalcTeams(currentTeams);
     renderTeams(currentTeams, true);
     closeMoveModal();
+}
+
+// 목적지 팀에서 게스트와 에버가 가장 비슷한 회원 찾기 (게스트·짝꿍 본인 제외)
+function findSwapPartner(team, guest) {
+    const pairedMember = pairings[guest.name];
+    let best = -1, bestDiff = Infinity;
+    team.members.forEach((m, idx) => {
+        if (m.isGuest || m.name === pairedMember) return;
+        const d = Math.abs(m.avg - guest.avg);
+        if (d < bestDiff) { bestDiff = d; best = idx; }
+    });
+    return best;
+}
+
+function pickMoveTarget(teamId, memberIdx) {
+    if (isShuffling) return;
+    const team = currentTeams.find(t => t.id === teamId);
+    if (!team) return;
+    const m = team.members[memberIdx];
+    if (!m || !m.isGuest) return; // 게스트만 이동 가능
+    const btns = document.getElementById('moveBtns');
+    btns.innerHTML = '';
+    const swapMap = {};
+    let anyTarget = false;
+    currentTeams.forEach(t => {
+        if (t.id === teamId) return;
+        const pi = findSwapPartner(t, m);
+        if (pi < 0) return;
+        anyTarget = true;
+        swapMap[t.id] = pi;
+        const b = document.createElement('button');
+        b.className = 'move-btn';
+        b.innerText = `${t.id}팀으로 이동 ↔ ${t.members[pi].name}`;
+        b.onclick = () => moveGuest(t.id);
+        btns.appendChild(b);
+    });
+    if (!anyTarget) return;
+    moveTarget = { teamId: teamId, memberIdx: memberIdx, swapMap: swapMap };
+    document.getElementById('moveTitle').innerText = `${m.name}님 자리 바꾸기`;
+    document.getElementById('moveModal').style.display = 'flex';
+}
+
+// ---- 게스트 짝짓기 (팀 짜기 전) ----
+function renderPairSetup() {
+    const section = document.getElementById('pairSection');
+    const list = document.getElementById('pairList');
+    const guests = teamPlayers.filter(p => p.isGuest);
+    if (currentMode !== 'team' || guests.length === 0) {
+        section.style.display = 'none';
+        return;
+    }
+    section.style.display = 'block';
+    list.innerHTML = '';
+    guests.forEach(g => {
+        const row = document.createElement('div');
+        row.className = 'pair-row';
+        const paired = pairings[g.name];
+        row.innerHTML = `<span>${g.name} <span class="guest-badge">게스트</span></span><span class="pair-with">${paired ? '↔ ' + paired : '짝 미정'}</span>`;
+        row.onclick = () => openPairPicker(g.name);
+        list.appendChild(row);
+    });
+}
+
+function openPairPicker(guestName) {
+    pairingGuest = guestName;
+    document.getElementById('pairTitle').innerText = `${guestName}의 짝꿍 선택`;
+    const btns = document.getElementById('pairBtns');
+    btns.innerHTML = '';
+    teamPlayers.filter(p => !p.isGuest).forEach(m => {
+        const b = document.createElement('button');
+        b.className = 'move-btn';
+        b.innerText = m.name + (pairings[guestName] === m.name ? ' ✓' : '');
+        b.onclick = () => setPairing(guestName, m.name);
+        btns.appendChild(b);
+    });
+    document.getElementById('pairModal').style.display = 'flex';
+}
+
+function setPairing(guestName, memberName) {
+    pairings[guestName] = memberName;
+    closePairModal();
+    renderPairSetup();
+}
+
+function clearPairing() {
+    if (pairingGuest) delete pairings[pairingGuest];
+    closePairModal();
+    renderPairSetup();
+}
+
+function closePairModal() {
+    document.getElementById('pairModal').style.display = 'none';
+    pairingGuest = null;
+}
+
+// 팀 배정 후 짝꿍이 다른 팀이면 자리 바꾸기로 같은 팀에 묶기 (인원수 유지)
+function enforcePairings(teams) {
+    Object.entries(pairings).forEach(([gName, mName]) => {
+        const gTeam = teams.find(t => t.members.some(m => m.isGuest && m.name === gName));
+        const mTeam = teams.find(t => t.members.some(m => !m.isGuest && m.name === mName));
+        if (!gTeam || !mTeam || gTeam === mTeam) return;
+        const gi = gTeam.members.findIndex(m => m.isGuest && m.name === gName);
+        const guest = gTeam.members[gi];
+        const pi = findSwapPartner(mTeam, guest);
+        if (pi < 0) return;
+        const tmp = mTeam.members[pi];
+        mTeam.members[pi] = guest;
+        gTeam.members[gi] = tmp;
+    });
+    recalcTeams(teams);
 }
 
 window.onload = loadGoogleSheet;
@@ -230,6 +352,7 @@ function switchTab(mode) {
         container.style.gridTemplateColumns = "1fr";
         renderAvg(avgPlayers);
     }
+    renderPairSetup();
 }
 
 async function loadGoogleSheet() {
@@ -264,6 +387,8 @@ async function loadGoogleSheet() {
         const guestCount = teamPlayers.filter(p => p.isGuest).length;
         document.getElementById('loadStatus').innerText = `✅ 동기화 완료! (팀 ${teamPlayers.length}명${guestCount ? `·게스트 ${guestCount}명` : ''}, 2인조 ${pairPlayers.length}명)`;
         document.getElementById('startBtn').disabled = false;
+        pairings = {};
+        renderPairSetup();
     } catch (error) {
         document.getElementById('loadStatus').innerText = `❌ 연결 실패.`;
     }
@@ -283,7 +408,7 @@ function startShuffle() {
         if (shuffleCount > 15) {
             clearInterval(interval);
             isShuffling = false; // 최종 렌더 전에 풀어야 게스트 버튼에 onclick이 붙음
-            if (currentMode === 'team') { currentTeams = makeBalancedTeams(tableCount, false); renderTeams(currentTeams, true); }
+            if (currentMode === 'team') { currentTeams = makeBalancedTeams(tableCount, false); enforcePairings(currentTeams); renderTeams(currentTeams, true); }
             else renderPairs(makePairsMatch(false));
             startBtn.disabled = false;
         }
