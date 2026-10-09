@@ -9,8 +9,6 @@
         .container { max-width: 650px; margin: 0 auto; background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); position: relative; }
         
         /* 🧡 최상단 제목 및 상태창 */
-        h2 { color: #ff8000; margin-bottom: 15px; }
-        .status { font-size: 14px; color: #e67300; margin-bottom: 20px; font-weight: bold; background: #fff3e0; padding: 10px; border-radius: 6px; display: inline-block; border: 1px solid #ffe0b2; }
         
         /* 📱 탭 메뉴 스타일 */
         .tab-container { display: flex; gap: 10px; margin-bottom: 20px; justify-content: center; }
@@ -74,15 +72,13 @@
         .move-hint { grid-column: 1 / -1; font-size: 13px; color: #8e44ad; font-weight: bold; background: #f5eefb; border: 1px solid #d7bde2; border-radius: 8px; padding: 8px; margin-top: 8px; }
 
         /* 2인조 3열 표 */
-        .pairs-table { width: 100%; border-collapse: collapse; font-size: 13px; background: #fff; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 6px rgba(0,0,0,0.06); }
+        .pairs-table { width: 100%; border-collapse: collapse; font-size: 13px; background: #fff; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 6px rgba(0,0,0,0.06); table-layout: fixed; }
         .pairs-table th { background: #ff8000; color: #fff; padding: 10px 2px; font-size: 17px; letter-spacing: 3px; }
         .pairs-table th:nth-child(-n+2) { border-right: 3px solid #fff; }
-        .pairs-table td { border: 1px solid #ffe2bd; padding: 6px 2px; text-align: center; white-space: nowrap; font-size: 12px; }
+        .pairs-table td { border: 1px solid #ffe2bd; padding: 4px 1px; text-align: center; white-space: nowrap; font-size: 13px; }
         .pairs-table td:nth-child(2), .pairs-table td:nth-child(4) { border-right: 2px solid #ffb74d; }
         .pairs-table tbody tr:nth-child(even) td { background: #fffaf2; }
-        .solo-mark { color: #e74c3c; font-weight: bold; }
-        .member.movable { cursor: pointer; }
-        .member.movable:hover { background: #f5eefb; border-radius: 4px; }
+        .solo-mark { color: #e74c3c; font-weight: bold; font-size: 10px; }
         #moveModal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1000; justify-content: center; align-items: center; }
         #moveBox { background: white; border-radius: 12px; padding: 20px; min-width: 250px; max-width: 90%; text-align: center; }
         #moveTitle { font-weight: bold; font-size: 17px; margin-bottom: 15px; color: #333; }
@@ -96,10 +92,6 @@
         .member { font-size: 15px; margin: 6px 0; color: #333; display: flex; justify-content: space-between; font-weight: bold; }
         .avg { color: #555; font-size: 13px; font-weight: normal; }
 
-        /* 2인조 대진표 전용 모바일 테이블 스타일 */
-        .match-table { width: 100%; border-collapse: collapse; background: white; font-size: 15px; }
-        .match-table td { width: 50%; padding: 12px; font-weight: bold; color: #333; border-bottom: 1px solid #eee; text-align: center; }
-        .match-table td:first-child { border-right: 1px solid #eee; }
 
         /* Avg 버튼 스타일 추가 */
         .avg-btn-top { position: absolute; top: 10px; right: 10px; padding: 6px 12px; background: #666; color: white; border: none; border-radius: 4px; font-weight: bold; cursor: pointer; font-size: 13px; }
