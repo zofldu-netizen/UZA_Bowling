@@ -19,6 +19,21 @@
         
         .input-group { margin: 15px 0; font-size: 16px; font-weight: bold; color: #333; }
         input[type="number"] { width: 50px; padding: 5px; font-size: 16px; text-align: center; border-radius: 4px; border: 1px solid #ccc; }
+
+        /* 인원 현황 3칸 (칸마다 1줄) */
+        .stats-row { display: flex; gap: 8px; margin: 14px 0 2px; }
+        .stat-box { flex: 1; background: #fff; border: 1px solid #ffe2bd; border-radius: 10px; padding: 8px 4px; text-align: center; font-size: 13px; color: #666; box-shadow: 0 1px 4px rgba(0,0,0,0.05); white-space: nowrap; }
+        .stat-box b { color: #ff8000; font-size: 14px; }
+        .stat-hot { border-color: #ce93d8; cursor: pointer; color: #9c27b0; font-weight: 700; }
+        .stat-hot b { color: #9c27b0; }
+        .stat-hot:active { background: #f9f0fc; }
+
+        /* 목표 팀 수 카드 + 스테퍼 */
+        #teamInputGroup { background: #fff; border: 1px solid #ffe2bd; border-radius: 14px; padding: 12px 16px; box-shadow: 0 1px 4px rgba(0,0,0,0.05); }
+        .stepper { display: inline-flex; align-items: center; gap: 10px; }
+        .step-btn { width: 34px; height: 34px; border-radius: 50%; border: 1px solid #ffd9ad; background: #fff3e0; color: #ff8000; font-size: 19px; font-weight: bold; cursor: pointer; line-height: 1; }
+        .step-btn:active { background: #ffe0b2; }
+        .step-val { font-size: 18px; font-weight: 900; min-width: 24px; text-align: center; }
         
         /* 🧡 팀 짜기 START! 버튼 */
         button.start-bar { width: 100%; padding: 15px; background: #ff8000; color: white; border: none; border-radius: 8px; font-size: 18px; font-weight: bold; cursor: pointer; transition: 0.2s; }
@@ -56,7 +71,16 @@
         #pairBtns { display: flex; flex-direction: column; gap: 8px; }
 
         /* 게스트 이동 안내 + 팝업 */
-        .move-hint { grid-column: 1 / -1; font-size: 13px; color: #8e44ad; font-weight: bold; background: #f5eefb; border: 1px solid #d7bde2; border-radius: 8px; padding: 8px; margin-bottom: 4px; }
+        .move-hint { grid-column: 1 / -1; font-size: 13px; color: #8e44ad; font-weight: bold; background: #f5eefb; border: 1px solid #d7bde2; border-radius: 8px; padding: 8px; margin-top: 8px; }
+
+        /* 2인조 3열 표 */
+        .pairs-table { width: 100%; border-collapse: collapse; font-size: 13px; background: #fff; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 6px rgba(0,0,0,0.06); }
+        .pairs-table th { background: #ff8000; color: #fff; padding: 10px 2px; font-size: 17px; letter-spacing: 3px; }
+        .pairs-table th:nth-child(-n+2) { border-right: 3px solid #fff; }
+        .pairs-table td { border: 1px solid #ffe2bd; padding: 6px 2px; text-align: center; }
+        .pairs-table td:nth-child(2), .pairs-table td:nth-child(4) { border-right: 2px solid #ffb74d; }
+        .pairs-table tbody tr:nth-child(even) td { background: #fffaf2; }
+        .solo-mark { color: #e74c3c; font-weight: bold; }
         .member.movable { cursor: pointer; }
         .member.movable:hover { background: #f5eefb; border-radius: 4px; }
         #moveModal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1000; justify-content: center; align-items: center; }
@@ -106,16 +130,24 @@
     
     <button id="avgBtn" class="avg-btn-top" onclick="switchTab('avg')">📊Avg</button>
     
-    <h2>🎳 정기전 팀 배정 </h2>
-    <div id="loadStatus" class="status">🔄 구글 API 보안 채널 연결 중...</div>
-    
-    <div class="tab-container">
+    <div class="stats-row" id="statsRow" style="display: none;">
+        <div class="stat-box">참석자 : <b id="statAttendees">–</b></div>
+        <div class="stat-box stat-hot" onclick="togglePairSection()">게스트 : <b id="statGuests">–</b> ▾</div>
+        <div class="stat-box">2인조 : <b id="statPairs">–</b></div>
+    </div>
+
+    <div class="tab-container" style="margin-top: 14px;">
         <button id="tabTeam" class="tab-btn active" onclick="switchTab('team')"> 정기전 팀 배정</button>
         <button id="tabPair" class="tab-btn" onclick="switchTab('pair')"> 2인조 팀 배정 (3G)</button>
     </div>
     
-    <div class="input-group" id="teamInputGroup">
-        목표 팀 수: <input type="number" id="tableCount" value="4" min="1"> 개 팀
+    <div class="input-group" id="teamInputGroup" style="display: flex; align-items: center; justify-content: space-between;">
+        <span>목표 팀 수</span>
+        <span class="stepper">
+            <button class="step-btn" onclick="changeTeamCount(-1)">−</button>
+            <span class="step-val" id="teamCountVal">4</span>
+            <button class="step-btn" onclick="changeTeamCount(1)">＋</button>
+        </span>
     </div>
     
     <div class="input-group" id="pairInfoGroup" style="display: none; font-size: 14px; color: #666; font-weight: normal;">
@@ -123,7 +155,7 @@
     </div>
 
     <div id="pairSection" style="display: none;">
-        <div style="font-weight: bold; font-size: 15px; color: #333; margin-bottom: 8px;">👥 게스트 짝짓기</div>
+        <div style="font-weight: bold; font-size: 15px; color: #333; margin-bottom: 8px;">👥 게스트 매칭</div>
         <div id="pairList"></div>
     </div>
 
@@ -156,6 +188,12 @@
 const GOOGLE_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbym_q0nL8Fqb0i9WWtRY7_HPXEaCABkXhTjnUV-BbAG6_4NbP6oejO8gsYjuBVFnz8LvA/exec";
 
 let teamPlayers = [], pairPlayers = [], avgPlayers = [], fetchedPlayers = [], currentMode = 'team';
+let teamCount = 4;
+
+function changeTeamCount(d) {
+    teamCount = Math.min(8, Math.max(1, teamCount + d));
+    document.getElementById('teamCountVal').textContent = teamCount;
+}
 
 // 이름 앞 'G' = 게스트 표시. 게스트는 팀 토탈/팀Avg에서 제외되고, 그 점수만큼 팀 핸디로 들어감
 function parsePlayer(rawName, avg) {
@@ -253,12 +291,18 @@ function pickMoveTarget(teamId, memberIdx) {
     document.getElementById('moveModal').style.display = 'flex';
 }
 
-// ---- 게스트 짝짓기 (팀 짜기 전) ----
+// ---- 게스트 매칭 (팀 짜기 전): 게스트 현황 칸을 누르면 열림 ----
+let pairSectionOpen = false;
+function togglePairSection() {
+    if (!teamPlayers.filter(p => p.isGuest).length) return;
+    pairSectionOpen = !pairSectionOpen;
+    renderPairSetup();
+}
 function renderPairSetup() {
     const section = document.getElementById('pairSection');
     const list = document.getElementById('pairList');
     const guests = teamPlayers.filter(p => p.isGuest);
-    if (currentMode !== 'team' || guests.length === 0) {
+    if (currentMode !== 'team' || guests.length === 0 || !pairSectionOpen) {
         section.style.display = 'none';
         return;
     }
@@ -339,7 +383,7 @@ function switchTab(mode) {
     container.innerHTML = '';
     
     if (mode === 'team') {
-        document.getElementById('teamInputGroup').style.display = 'block';
+        document.getElementById('teamInputGroup').style.display = 'flex';
         document.getElementById('pairInfoGroup').style.display = 'none';
         container.style.gridTemplateColumns = "repeat(2, 1fr)";
     } else if (mode === 'pair') {
@@ -384,18 +428,21 @@ async function loadGoogleSheet() {
         }
         
         fetchedPlayers = teamPlayers;
-        const guestCount = teamPlayers.filter(p => p.isGuest).length;
-        document.getElementById('loadStatus').innerText = `✅ 동기화 완료! (팀 ${teamPlayers.length}명${guestCount ? `·게스트 ${guestCount}명` : ''}, 2인조 ${pairPlayers.length}명)`;
         document.getElementById('startBtn').disabled = false;
         pairings = {};
+        pairSectionOpen = false;
+        document.getElementById('statAttendees').textContent = teamPlayers.length;
+        document.getElementById('statGuests').textContent = teamPlayers.filter(p => p.isGuest).length;
+        document.getElementById('statPairs').textContent = pairPlayers.length;
+        document.getElementById('statsRow').style.display = 'flex';
         renderPairSetup();
     } catch (error) {
-        document.getElementById('loadStatus').innerText = `❌ 연결 실패.`;
+        document.getElementById('startBtn').disabled = true;
     }
 }
 
 function startShuffle() {
-    const tableCount = parseInt(document.getElementById('tableCount').value) || 4;
+    const tableCount = teamCount;
     const startBtn = document.getElementById('startBtn');
     startBtn.disabled = true;
     isShuffling = true;
@@ -469,12 +516,6 @@ function renderTeams(teams, showHandicap) {
     container.innerHTML = '';
     const movable = showHandicap && !isShuffling;
     const hasGuest = teams.some(t => t.members.some(m => m.isGuest));
-    if (hasGuest && movable) {
-        const hint = document.createElement('div');
-        hint.className = 'move-hint';
-        hint.innerText = '💡 게스트 버튼을 누르면 팀을 옮길 수 있어요';
-        container.appendChild(hint);
-    }
     teams.forEach(t => {
         const box = document.createElement('div');
         box.className = 'team-box';
@@ -489,11 +530,30 @@ function renderTeams(teams, showHandicap) {
         box.innerHTML = html + `</div>`;
         container.appendChild(box);
     });
+    if (hasGuest && movable) {
+        const hint = document.createElement('div');
+        hint.className = 'move-hint';
+        hint.innerText = '💡 게스트 버튼을 누르면 팀을 옮길 수 있어요';
+        container.appendChild(hint);
+    }
 }
 
 function renderPairs(games) {
     const container = document.getElementById('teamsDisplay');
-    container.innerHTML = `<div style="display: flex; flex-direction: column; gap: 20px; width: 100%;">` + games.map((g, i) => `<div style="background: #ffffff; border-radius: 8px; border: 1px solid #ddd; overflow: hidden; box-shadow: 0 2px 6px rgba(0,0,0,0.06);"><div style="background: #ff8000; color: white; font-weight: bold; padding: 12px; font-size: 18px;">⚡ ${i+1}G</div><table class="match-table">${g.map((p, idx) => `<tr style="background: ${idx%2===0?'#ffffff':'#fcfcfc'};"><td>${guestBadge(p.p1)}</td><td>${p.isSolo?'<span style="color: #e74c3c; font-weight:bold;">성성복복🔥</span>':guestBadge(p.p2)}</td></tr>`).join('')}</table></div>`).join('') + `</div>`;
+    const maxPairs = Math.max(...games.map(g => g.length));
+    let html = `<table class="pairs-table"><thead><tr>`;
+    games.forEach((g, i) => { html += `<th colspan="2">${i+1}G</th>`; });
+    html += `</tr></thead><tbody>`;
+    for (let r = 0; r < maxPairs; r++) {
+        html += `<tr>`;
+        games.forEach(g => {
+            const pr = g[r];
+            if (pr) html += `<td>${guestBadge(pr.p1)}</td><td>${pr.isSolo ? '<span class="solo-mark">성성복복🔥</span>' : guestBadge(pr.p2)}</td>`;
+            else html += `<td></td><td></td>`;
+        });
+        html += `</tr>`;
+    }
+    container.innerHTML = html + `</tbody></table>`;
 }
 
 function renderAvg(data) {
