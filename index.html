@@ -77,7 +77,7 @@
         .pairs-table { width: 100%; border-collapse: collapse; font-size: 13px; background: #fff; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 6px rgba(0,0,0,0.06); }
         .pairs-table th { background: #ff8000; color: #fff; padding: 10px 2px; font-size: 17px; letter-spacing: 3px; }
         .pairs-table th:nth-child(-n+2) { border-right: 3px solid #fff; }
-        .pairs-table td { border: 1px solid #ffe2bd; padding: 6px 2px; text-align: center; }
+        .pairs-table td { border: 1px solid #ffe2bd; padding: 6px 2px; text-align: center; white-space: nowrap; font-size: 12px; }
         .pairs-table td:nth-child(2), .pairs-table td:nth-child(4) { border-right: 2px solid #ffb74d; }
         .pairs-table tbody tr:nth-child(even) td { background: #fffaf2; }
         .solo-mark { color: #e74c3c; font-weight: bold; }
@@ -617,7 +617,7 @@ function renderPairs(games) {
         html += `<tr>`;
         games.forEach(g => {
             const pr = g[r];
-            if (pr) html += `<td>${guestBadge(pr.p1)}</td><td>${pr.isSolo ? '<span class="solo-mark">성성복복🔥</span>' : guestBadge(pr.p2)}</td>`;
+            if (pr) html += `<td>${pr.p1.name}</td><td>${pr.isSolo ? '<span class="solo-mark">성성복복🔥</span>' : pr.p2.name}</td>`;
             else html += `<td></td><td></td>`;
         });
         html += `</tr>`;
