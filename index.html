@@ -560,14 +560,26 @@ function makePairsMatch(isVisualShuffle) {
     players.sort((a, b) => b.avg - a.avg);
     let g1c = Math.ceil(players.length/2), g1 = players.slice(0, g1c), g2 = players.slice(g1c);
     let games = [];
+    let prevPairs = new Set();
+    const pairKey = (a, b) => [a.name, b.name].sort().join('|');
     for (let g = 0; g < 3; g++) {
-        let s1 = [...g1].sort(() => Math.random()-0.5), s2 = [...g2].sort(() => Math.random()-0.5);
-        let pairs = [];
-        for (let i = 0; i < g1c; i++) {
-            if (players.length % 2 !== 0 && i === g1c - 1) pairs.push({ p1: s1[i], p2: s1[i], isSolo: true });
-            else pairs.push({ p1: s1[i], p2: s2[i], isSolo: false });
+        let bestPairs = null, bestRepeats = Infinity;
+        for (let attempt = 0; attempt < 100; attempt++) {
+            let s1 = [...g1].sort(() => Math.random()-0.5), s2 = [...g2].sort(() => Math.random()-0.5);
+            let pairs = [], repeats = 0;
+            for (let i = 0; i < g1c; i++) {
+                if (players.length % 2 !== 0 && i === g1c - 1) pairs.push({ p1: s1[i], p2: s1[i], isSolo: true });
+                else {
+                    pairs.push({ p1: s1[i], p2: s2[i], isSolo: false });
+                    if (prevPairs.has(pairKey(s1[i], s2[i]))) repeats++;
+                }
+            }
+            if (repeats < bestRepeats) { bestRepeats = repeats; bestPairs = pairs; }
+            if (repeats === 0) break;
         }
-        games.push(pairs);
+        games.push(bestPairs);
+        prevPairs = new Set();
+        bestPairs.forEach(pr => { if (!pr.isSolo) prevPairs.add(pairKey(pr.p1, pr.p2)); });
     }
     return games;
 }
